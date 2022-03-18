@@ -1,50 +1,5 @@
 function [x0,y0,iout,jout] = intersections(x1,y1,x2,y2,robust)
 
-%
-% Given two line segments, L1 and L2,
-%
-%   L1 endpoints:  (x1(1),y1(1)) and (x1(2),y1(2))
-%   L2 endpoints:  (x2(1),y2(1)) and (x2(2),y2(2))
-%
-% we can write four equations with four unknowns and then solve them.  The
-% four unknowns are t1, t2, x0 and y0, where (x0,y0) is the intersection of
-% L1 and L2, t1 is the distance from the starting point of L1 to the
-% intersection relative to the length of L1 and t2 is the distance from the
-% starting point of L2 to the intersection relative to the length of L2.
-%
-% So, the four equations are
-%
-%    (x1(2) - x1(1))*t1 = x0 - x1(1)
-%    (x2(2) - x2(1))*t2 = x0 - x2(1)
-%    (y1(2) - y1(1))*t1 = y0 - y1(1)
-%    (y2(2) - y2(1))*t2 = y0 - y2(1)
-%
-% Rearranging and writing in matrix form,
-%
-%  [x1(2)-x1(1)       0       -1   0;      [t1;      [-x1(1);
-%        0       x2(2)-x2(1)  -1   0;   *   t2;   =   -x2(1);
-%   y1(2)-y1(1)       0        0  -1;       x0;       -y1(1);
-%        0       y2(2)-y2(1)   0  -1]       y0]       -y2(1)]
-%
-% Let's call that A*T = B.  We can solve for T with T = A\B.
-%
-% Once we have our solution we just have to look at t1 and t2 to determine
-% whether L1 and L2 intersect.  If 0 <= t1 < 1 and 0 <= t2 < 1 then the two
-% line segments cross and we can include (x0,y0) in the output.
-%
-% In principle, we have to perform this computation on every pair of line
-% segments in the input data.  This can be quite a large number of pairs so
-% we will reduce it by doing a simple preliminary check to eliminate line
-% segment pairs that could not possibly cross.  The check is to look at the
-% smallest enclosing rectangles (with sides parallel to the axes) for each
-% line segment pair and see if they overlap.  If they do then we have to
-% compute t1 and t2 (via the A\B computation) to see if the line segments
-% cross, but if they don't then the line segments cannot cross.  In a
-% typical application, this technique will eliminate most of the potential
-% line segment pairs.
-
-
-% Input checks.
 if verLessThan('matlab','7.13')
 	error(nargchk(2,5,nargin)) %#ok<NCHKN>
 else
@@ -98,22 +53,7 @@ dxy1 = diff(xy1);
 dxy2 = diff(xy2);
 
 
-% Determine the combinations of i and j where the rectangle enclosing the
-% i'th line segment of curve 1 overlaps with the rectangle enclosing the
-% j'th line segment of curve 2.
 
-% Original method that works in old MATLAB versions, but is slower than
-% using binary singleton expansion (explicit or implicit).
-% [i,j] = find( ...
-% 	repmat(mvmin(x1),1,n2) <= repmat(mvmax(x2).',n1,1) & ...
-% 	repmat(mvmax(x1),1,n2) >= repmat(mvmin(x2).',n1,1) & ...
-% 	repmat(mvmin(y1),1,n2) <= repmat(mvmax(y2).',n1,1) & ...
-% 	repmat(mvmax(y1),1,n2) >= repmat(mvmin(y2).',n1,1));
-
-% Select an algorithm based on MATLAB version and number of line
-% segments in each curve.  We want to avoid forming large matrices for
-% large numbers of line segments.  If the matrices are not too large,
-% choose the best method available for the MATLAB version.
 if n1 > 1000 || n2 > 1000 || verLessThan('matlab','7.4')
 	% Determine which curve has the most line segments.
 	if n1 >= n2
@@ -169,13 +109,7 @@ else
 end
 
 
-% Find segments pairs which have at least one vertex = NaN and remove them.
-% This line is a fast way of finding such segment pairs.  We take
-% advantage of the fact that NaNs propagate through calculations, in
-% particular subtraction (in the calculation of dxy1 and dxy2, which we
-% need anyway) and addition.
-% At the same time we can remove redundant combinations of i and j in the
-% case of finding intersections of a line with itself.
+
 if self_intersect
 	remove = isnan(sum(dxy1(i,:) + dxy2(j,:),2)) | j <= i + 1;
 else
@@ -184,9 +118,7 @@ end
 i(remove) = [];
 j(remove) = [];
 
-% Initialize matrices.  We'll put the T's and B's in matrices and use them
-% one column at a time.  AA is a 3-D extension of A where we'll use one
-% plane at a time.
+
 n = length(i);
 T = zeros(4,n);
 AA = zeros(4,4,n);
@@ -196,22 +128,7 @@ AA([1 3],1,:) = dxy1(i,:).';
 AA([2 4],2,:) = dxy2(j,:).';
 B = -[x1(i) x2(j) y1(i) y2(j)].';
 
-% Loop through possibilities.  Trap singularity warning and then use
-% lastwarn to see if that plane of AA is near singular.  Process any such
-% segment pairs to determine if they are colinear (overlap) or merely
-% parallel.  That test consists of checking to see if one of the endpoints
-% of the curve 2 segment lies on the curve 1 segment.  This is done by
-% checking the cross product
-%
-%   (x1(2),y1(2)) - (x1(1),y1(1)) x (x2(2),y2(2)) - (x1(1),y1(1)).
-%
-% If this is close to zero then the segments overlap.
 
-% If the robust option is false then we assume no two segment pairs are
-% parallel and just go ahead and do the computation.  If A is ever singular
-% a warning will appear.  This is faster and obviously you should use it
-% only when you know you will never have overlapping or parallel segment
-% pairs.
 
 if robust
 	overlap = false(n,1);
