@@ -1,11 +1,5 @@
 %things to fix :
-%one shape gets placed inside another shape
-%shows Warning
-%curves dont get placed
-%code for circles need to be written
-%try all possible angular orientation 
-%maybe use recursion in C++ and then import data to Matlab for plotting.
-%find error in intersections.m
+%Warning error in intersections.m
 
 
 clc
